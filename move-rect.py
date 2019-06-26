@@ -1,3 +1,4 @@
+# coding: utf-8
 '''
 [En] This Script tests animation of "pixels" through rectangles in pygame. If the animation quality is not good enough we will explore another way to obtain a smooth animation
 [Fr] Ce script teste l'animation des "pixels" via les rectangles de PyGame. Si le résultat n'est pas assez qualitatif, on essayera un autre moyen.
@@ -34,8 +35,9 @@ y = 100
 target_x = 150
 target_y = 150
 # Motion step / Pas de l'animation
-pas_x = int((target_x-x)/24)
-pas_y = int((target_y-y)/24)
+fps = 250
+pas_x = int((target_x-x)/fps)
+pas_y = int((target_y-y)/fps)
 # Clock init for FPS specification / Initialisation de l'horloge pour déterminer la fréquence de l'affichage
 clock = pg.time.Clock()
 
@@ -81,7 +83,7 @@ def main(holoface_close,x,y,target_x,target_y):
 
         # [En] Frame rate definition
         # [Fr] Définition de la fréquence de l'animation
-        clock.tick(24)
+        clock.tick(fps)
 
 #----------------------------------------------------------
 # [En] Main program
