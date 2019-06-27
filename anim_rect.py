@@ -45,19 +45,28 @@ def RoundedRect(screen, rect, color, radius=0.5, angle=0):
 
     return screen.blit(r, pos)
 
-#"""
 path = os.getcwd()
 pg.init()
 
+# read png image 
+from matplotlib import pyplot as plt
+im = plt.imread(os.path.join('images', 'hp_50x60.png'))
+if im.ndim == 3:
+    im = im[:, :, 0]
+im /= im.max()  # normalize image
+print(im.shape)
+print(im[0, 0])
+
 # animation parameters
 fps = 100  # frame per second
-N_ROWS = 30
-N_COLS = 40
-SIZE = 25  # size of a square unit [pixel]
+N_ROWS = 60
+N_COLS = 50
+SIZE = 15  # size of a square unit [pixel]
 size_init = SIZE // 5  # initial shape size [pixel]
-T = 5  # resize period [s]
+T = 10  # resize period [s]
 rotation_speeds = np.random.uniform(0, 1, N_ROWS * N_COLS).reshape((N_ROWS, N_COLS))
 print(rotation_speeds)
+my_speed = 1.
 
 marine = (0, 10, 50)
 white = (255, 255, 255)
@@ -76,6 +85,7 @@ t0 = time.time()
 print(t0)
 
 sizes = size_init * np.ones((N_ROWS, N_COLS), dtype=float)
+# angle should evole between zero (low grey values) and 45 deg (highest gray values)
 angles = np.zeros((N_ROWS, N_COLS), dtype=float)
 
 while not holoface_close:
@@ -88,11 +98,12 @@ while not holoface_close:
     rect = pg.draw.rect(screen, marine, pg.Rect(0, 0, N_COLS * SIZE, N_ROWS * SIZE))
     for i in range(N_ROWS):
         for j in range(N_COLS):
-            x, y = (2 * j + 1) * SIZE // 2, (2 * i + 1) * SIZE // 2
-            sizes[i, j] = size_init + rotation_speeds[i, j] * SIZE // 2 * abs(sin(pi * (t - t0) / T))
-            angles[i, j] = (angles[i, j] + rotation_speeds[i, j]) % 360  # rotation angle
+            x, y = (2 * j + 1) * (SIZE // 2), (2 * i + 1) * (SIZE // 2)
+            #sizes[i, j] = size_init + rotation_speeds[i, j] * (SIZE // 2) * abs(sin(pi * (t - t0) / T))
+            angles[i, j] = (angles[i, j] + rotation_speeds[i, j]) % 360 
+            sizes[i, j] = max(im[i, j] * 10 * abs(sin(pi * (t - t0) / T)), 1.0)
+            angles[i, j] = im[i, j] * -45 * abs(sin(pi * (t - t0) / T))  # rotation angle
             size = sizes[i, j]
             RoundedRect(screen, pg.Rect(x - size // 2, y - size // 2, size, size), white, 0.5, angles[i, j])
     pg.display.update()
     clock.tick(fps)
-#"""
