@@ -45,48 +45,61 @@ def RoundedRect(screen, rect, color, radius=0.5, angle=0):
 
     return screen.blit(r, pos)
 
+def f(t):
+    """Time function to pace the animation."""
+    return abs(sin(pi * (t - t0) / T))
+
 path = os.getcwd()
+holoface_close = False  # flag to stop
 pg.init()
 
-# read png image 
-from matplotlib import pyplot as plt
-im = plt.imread(os.path.join('images', 'hp_50x60.png'))
-if im.ndim == 3:
-    im = im[:, :, 0]
-im /= im.max()  # normalize image
-print(im.shape)
-print(im[0, 0])
-
 # animation parameters
+anim = 'image'  # must be in ['random', 'image']
 fps = 100  # frame per second
 N_ROWS = 60
 N_COLS = 50
 SIZE = 15  # size of a square unit [pixel]
-size_init = SIZE // 5  # initial shape size [pixel]
-T = 10  # resize period [s]
-rotation_speeds = np.random.uniform(0, 1, N_ROWS * N_COLS).reshape((N_ROWS, N_COLS))
-print(rotation_speeds)
-my_speed = 1.
+T = 10  # animation period [s]
 
+# colors
 marine = (0, 10, 50)
 white = (255, 255, 255)
 
+# construct the target pattern which is used to control the sizes and the angles
+if anim == 'random':
+    target = np.random.uniform(0, 1, N_ROWS * N_COLS).reshape((N_ROWS, N_COLS))
+elif anim == 'image':
+    # read png image 
+    from matplotlib import pyplot as plt
+    im = plt.imread(os.path.join('images', 'hp_50x60.png'))
+    if im.ndim == 3:
+        im = im[:, :, 0]
+    target = im / im.max()  # normalize image
+else:
+    print('wrong animation type: %s' % anim)
+    holoface_close = True
+
+# setup the screen
 screen = pg.display.set_mode((N_COLS * SIZE, N_ROWS * SIZE))
 screen.fill(marine)
-pg.display.flip()
 pg.display.set_caption('HoloFace test animation')
 pg.mouse.set_visible(0)
 
-holoface_close = False  # flag to stop
-clock = pg.time.Clock()
-t0 = clock.get_time()
-print(t0)
+clock = pg.time.Clock()  # setup clock
+#t0 = clock.get_time()
 t0 = time.time()
-print(t0)
 
-sizes = size_init * np.ones((N_ROWS, N_COLS), dtype=float)
-# angle should evole between zero (low grey values) and 45 deg (highest gray values)
+ones = np.ones((N_ROWS, N_COLS), dtype=float)
+sizes = ones
+# angle should evolve between zero (low grey values) and 45 deg (highest gray values)
 angles = np.zeros((N_ROWS, N_COLS), dtype=float)
+# compute mean coordinates once and for all
+xy = np.empty((2, N_ROWS, N_COLS), dtype=int)
+for i in range(N_ROWS):
+    for j in range(N_COLS):
+        xy[0, i, j] = (2 * j + 1) * (SIZE // 2)
+        xy[1, i, j] = (2 * i + 1) * (SIZE // 2)
+print(xy[0].shape)
 
 while not holoface_close:
     for event in pg.event.get():
@@ -95,15 +108,15 @@ while not holoface_close:
             pg.quit()
     
     t = time.time()
-    rect = pg.draw.rect(screen, marine, pg.Rect(0, 0, N_COLS * SIZE, N_ROWS * SIZE))
-    for i in range(N_ROWS):
-        for j in range(N_COLS):
-            x, y = (2 * j + 1) * (SIZE // 2), (2 * i + 1) * (SIZE // 2)
-            #sizes[i, j] = size_init + rotation_speeds[i, j] * (SIZE // 2) * abs(sin(pi * (t - t0) / T))
-            angles[i, j] = (angles[i, j] + rotation_speeds[i, j]) % 360 
-            sizes[i, j] = max(im[i, j] * 10 * abs(sin(pi * (t - t0) / T)), 1.0)
-            angles[i, j] = im[i, j] * -45 * abs(sin(pi * (t - t0) / T))  # rotation angle
-            size = sizes[i, j]
-            RoundedRect(screen, pg.Rect(x - size // 2, y - size // 2, size, size), white, 0.5, angles[i, j])
+    screen.fill(marine)  # clear screen
+    # compute all sizes and angles for this time increment
+    sizes = target * 10 * f(t)
+    sizes = np.maximum(sizes, ones)  # minimum size of 1
+    angles = target * -45 * f(t)
+    # draw all rectangle using list comprehension (avoid for loops for performance)
+    [RoundedRect(screen, pg.Rect(xy[0, i, j] - sizes[i, j] // 2, 
+                                 xy[1, i, j] - sizes[i, j] // 2, 
+                                 sizes[i, j], sizes[i, j]), 
+                                 white, 0.5, angles[i, j]) for j in range(N_COLS) for i in range(N_ROWS)]
     pg.display.update()
     clock.tick(fps)
