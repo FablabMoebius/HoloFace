@@ -1,3 +1,4 @@
+# coding: utf-8
 '''
 [En]
 FABLAB MOEBIUS - 6/8/19
@@ -18,6 +19,8 @@ Auteurs : Henry Proudhon & Villafruela Naimeric
 import sys, time, random
 import pygame as pg
 import os
+from anim_rect import RoundedRect
+
 path = os.getcwd()
 pg.init()
 
@@ -34,12 +37,12 @@ pg.init()
 # ECRAN
 # Choix du mode d'orientation de l'ecran : Mode vertical (v) ou Horizontal (h)
 
-mode = 'v'
+mode = 'h'
 
 # Default screen dimensions
 # Dimensions de l'ecran (Le format de base est un écran full HD
 # 1 = taille d'un écran full HD (1920 x 1080) / 2 = moitiée d'un écran Full HD / 3 = tiers d'un écran Full HD
-ratio = 2
+ratio = 8
 
 if (mode == 'v'):
     screen_w = int(1080/ratio)
@@ -66,8 +69,8 @@ step_v = 30 #pixels
 
 
 #Caracteristiques des pixels (width, height)
-pixel_w = 5 #pixels
-pixel_h = 5 #pixels
+pixel_w = 8 #pixels
+pixel_h = 8 #pixels
 # initial % scale
 pixel_scale = 10 #en pourcentage
 # Délai maximum entre génération de vagues
@@ -95,13 +98,13 @@ for i in range (1,line_max):
 for l in range (1, line_max):
         for i in range (1, col_max):
             pg.draw.rect(screen, (255, 255, 255), pg.Rect(int(i*step_h),int(l*step_v),int(pixel_w*pixel_scale/100),int(pixel_h*pixel_scale/100)))
-            #print('pox x : %d, pos y : %d, pos x + pixw : %d, pos y + pixh : %d' % (i*step_h,l*step_v,i*step_h+pixel_w,l*step_v+pixel_h))
+            print('pox x : %d, pos y : %d, pos x + pixw : %d, pos y + pixh : %d' % (i*step_h,l*step_v,i*step_h+pixel_w,l*step_v+pixel_h))
 pg.display.update()
 
 
 
-pg.transform.scale (pg.image.load(path+'/images/shim.png'), [10,10])
-pg.display.update()
+#pg.transform.scale (pg.image.load(path+'/images/shim.bmp'), [10,10])
+#pg.display.update()
 
 # On bloque la fermeture de la fenêtre
 while not holoface_close:
