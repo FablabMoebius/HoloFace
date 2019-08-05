@@ -8,6 +8,7 @@ import os
 import numpy as np
 from math import sin, pi
 import time
+from scipy import ndimage
 
 def RoundedRect(screen, rect, color, radius=0.5, angle=0):
     """
@@ -47,7 +48,11 @@ def RoundedRect(screen, rect, color, radius=0.5, angle=0):
 
 def f(t):
     """Time function to pace the animation."""
-    return abs(sin(pi * (t - t0) / T))
+    return np.abs(np.sin(pi * t / T))
+
+def triangle(t):
+    """Linear time function to rotate the pattern forth and back."""
+    return 2 * np.abs(t / T - np.floor(t / T + 0.5))
 
 path = os.getcwd()
 holoface_close = False  # flag to stop
@@ -60,6 +65,15 @@ N_ROWS = 60
 N_COLS = 50
 SIZE = 15  # size of a square unit [pixel]
 T = 10  # animation period [s]
+angle = 180  # degrees
+
+# plot time functions
+from matplotlib import pyplot as plt
+t = np.linspace(0, 20, 501)
+plt.figure()
+plt.plot(t, f(t))
+plt.plot(t, triangle(t))
+plt.show()
 
 # colors
 marine = (0, 10, 50)
@@ -71,9 +85,14 @@ if anim == 'random':
 elif anim == 'image':
     # read png image 
     from matplotlib import pyplot as plt
-    im = plt.imread(os.path.join('images', 'hp_50x60.png'))
+    #im_name = 'holoface_ambigram_60x60.png'
+    #im_name = 'holoface_ambigram_100x38.png'
+    im_name = 'hp_50x60.png'
+    #im_name = 'pj.png'
+    im = plt.imread(os.path.join('images', im_name))
     if im.ndim == 3:
         im = im[:, :, 0]
+    N_ROWS, N_COLS = im.shape
     target = im / im.max()  # normalize image
 else:
     print('wrong animation type: %s' % anim)
@@ -109,10 +128,15 @@ while not holoface_close:
     
     t = time.time()
     screen.fill(marine)  # clear screen
+    # rotate target
+    angle = 0.
+    rot_target = ndimage.rotate(target, angle * triangle(t - t0), reshape=False)
+
     # compute all sizes and angles for this time increment
-    sizes = target * 10 * f(t)
+    sizes = rot_target * 10 * f(t - t0)
     sizes = np.maximum(sizes, ones)  # minimum size of 1
-    angles = target * -45 * f(t)
+    angles = rot_target * -45 * f(t - t0)
+    angles = np.zeros((N_ROWS, N_COLS), dtype=float)
     # draw all rectangle using list comprehension (avoid for loops for performance)
     [RoundedRect(screen, pg.Rect(xy[0, i, j] - sizes[i, j] // 2, 
                                  xy[1, i, j] - sizes[i, j] // 2, 
@@ -120,3 +144,4 @@ while not holoface_close:
                                  white, 0.5, angles[i, j]) for j in range(N_COLS) for i in range(N_ROWS)]
     pg.display.update()
     clock.tick(fps)
+
