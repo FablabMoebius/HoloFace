@@ -67,13 +67,13 @@ holoface_close = False  # flag to stop the game
 pg.init()
 
 # animation parameters
-anim = 'splash'  # must be in ['random', 'splash', image']
+anim = 'image'  # must be in ['random', 'splash', 'image']
 save_screenshot = False
-fps = 40  # frame per second
+FPS = 40  # frame per second
 N_ROWS_DEFAULT = 30
 N_COLS_DEFAULT = 30
 SIZE = 15  # size of a square unit [pixel]
-T = 10  # animation period [s]
+T = 10 * 1e3 # animation period [ms]
 rot_angle = 180  # degrees, angle to rotate the target as time increases
 tilt_angle = 45  # degrees, angle to give a sense of depth
 
@@ -119,12 +119,11 @@ pg.display.set_caption('HoloFace test animation')
 pg.mouse.set_visible(0)
 
 clock = pg.time.Clock()  # setup clock
-#t0 = clock.get_time()
-t0 = time.time()
+t0 = pg.time.get_ticks()  # in ms
 
 ones = np.ones((N_ROWS, N_COLS), dtype=float)
 sizes = ones
-# angle should evolve between zero (low grey values) and 45 deg (highest gray values)
+# angle should evolve between zero (low grey values) and tilt_angle (highest gray values)
 angles = np.zeros((N_ROWS, N_COLS), dtype=float)
 # compute mean coordinates once and for all
 xy = np.empty((2, N_ROWS, N_COLS), dtype=int)
@@ -141,11 +140,12 @@ while not holoface_close:
             break
 
         if event.type == pg.KEYDOWN:
-            if event.key == pg.Q:  # use 'Q' to quit game
+            if event.key == pg.K_q:  # use 'q' to quit game
+                print('exiting the game')
                 holoface_close = True
                 break
     
-    t = time.time()
+    t = pg.time.get_ticks()  # in ms
     screen.fill(marine)  # clear screen
     # rotate the target if needed
     rot_target = ndimage.rotate(target, rot_angle * triangle(t - t0), reshape=False)
@@ -160,7 +160,7 @@ while not holoface_close:
                                  sizes[i, j], sizes[i, j]), 
                                  white, 0.5, angles[i, j]) for j in range(N_COLS) for i in range(N_ROWS)]
     pg.display.update()
-    clock.tick(fps)
+    clock.tick(FPS)
 
 print('thank you for playing')
 if save_screenshot:
