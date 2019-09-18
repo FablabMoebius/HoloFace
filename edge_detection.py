@@ -4,7 +4,8 @@ from scipy import ndimage
 import numpy as np
 import os
 
-im = plt.imread(os.path.join('images', 'Pierre-Joseph_Proudhon.png'))[:, :, 0]
+#im = plt.imread(os.path.join('images', 'Pierre-Joseph_Proudhon.png'))[:, :, 0]
+im = plt.imread('face.png')[:, :, 0]
 print(im.shape)
 
 # try sobel filter
@@ -34,7 +35,7 @@ def rebin(arr, new_shape):
   return arr.reshape(shape).mean(-1).mean(1)
 
 pattern = rebin(sob[1:571, 1:391], (57*2, 39*2))
-plt.imsave('images/pj.png', pattern, cmap=cm.gray, vmax=0.4)
+#plt.imsave('images/pj.png', pattern, cmap=cm.gray, vmax=0.4)
 print(pattern.max())
 plt.figure()
 plt.imshow(pattern, vmin=0, vmax=0.4, interpolation='nearest', cmap=cm.gray)
