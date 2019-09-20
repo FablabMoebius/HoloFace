@@ -72,7 +72,7 @@ save_screenshot = False
 FPS = 40  # frame per second
 N_ROWS_DEFAULT = 30
 N_COLS_DEFAULT = 30
-SIZE = 15  # size of a square unit [pixel]
+SIZE = 14  # size of a square unit [pixel]
 T = 10 * 1e3 # animation period [ms]
 rot_angle = 180  # degrees, angle to rotate the target as time increases
 tilt_angle = 45  # degrees, angle to give a sense of depth
@@ -103,9 +103,9 @@ elif anim == 'splash':
     rot_angle = 180.
     tilt_angle = 0.
 elif anim == 'image':
-    target = load_image('hp_50x60.png')
+    target = load_image('holoface.png')
     rot_angle = 0.
-    tilt_angle = 45.
+    tilt_angle = 0.  #45.
 else:
     print('wrong animation type: %s' % anim)
     holoface_close = True
@@ -148,6 +148,7 @@ while not holoface_close:
     t = pg.time.get_ticks()  # in ms
     screen.fill(marine)  # clear screen
     # rotate the target if needed
+    #rot_target = target
     rot_target = ndimage.rotate(target, rot_angle * triangle(t - t0), reshape=False)
 
     # compute all sizes and angles for this time increment
