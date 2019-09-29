@@ -10,7 +10,7 @@ from math import sin, pi
 import time
 from scipy import ndimage
 
-def RoundedRect(screen, rect, color, radius=0.5, angle=0):
+def RoundedRect(rect, color, radius=0.5, angle=0):
     """
     :param screen: display destination
     :param rect: pygame Rect instance
@@ -44,7 +44,13 @@ def RoundedRect(screen, rect, color, radius=0.5, angle=0):
     rectangle.fill((255, 255, 255, alpha), special_flags=pg.BLEND_RGBA_MIN)
     r = pg.transform.rotate(rectangle, angle)
 
-    return screen.blit(r, pos)
+    return (r, pos)
+
+def is_swelling(t):
+    """return True if the animation is currently swelling, False if it is shrinking.
+    This can be used to optimize the animation speed.
+    """
+    return (t // (0.5 * T)) % 2 == 0  # first half of the period is swelling
 
 def f(t):
     """Time function to pace the animation."""
@@ -69,11 +75,11 @@ pg.init()
 # animation parameters
 anim = 'image'  # must be in ['random', 'splash', 'image']
 save_screenshot = False
-FPS = 40  # frame per second
-N_ROWS_DEFAULT = 30
-N_COLS_DEFAULT = 30
-SIZE = 14  # size of a square unit [pixel]
-T = 10 * 1e3 # animation period [ms]
+FPS = 10  # frame per second
+N_ROWS_DEFAULT = 6
+N_COLS_DEFAULT = 6
+SIZE = 15  # size of a square unit [pixel] - ideally take an even number
+T = 5 * 1e3 # animation period [ms]
 rot_angle = 180  # degrees, angle to rotate the target as time increases
 tilt_angle = 45  # degrees, angle to give a sense of depth
 
@@ -115,23 +121,27 @@ N_ROWS, N_COLS = target.shape
 # setup the screen
 screen = pg.display.set_mode((N_COLS * SIZE, N_ROWS * SIZE))
 screen.fill(marine)
+
 pg.display.set_caption('HoloFace test animation')
 pg.mouse.set_visible(0)
 
 clock = pg.time.Clock()  # setup clock
 t0 = pg.time.get_ticks()  # in ms
 
-ones = np.ones((N_ROWS, N_COLS), dtype=float)
-sizes = ones
 # angle should evolve between zero (low grey values) and tilt_angle (highest gray values)
 angles = np.zeros((N_ROWS, N_COLS), dtype=float)
-# compute mean coordinates once and for all
+# compute the mean coordinates of each cell once and for all
 xy = np.empty((2, N_ROWS, N_COLS), dtype=int)
 for i in range(N_ROWS):
     for j in range(N_COLS):
         xy[0, i, j] = (2 * j + 1) * (SIZE // 2)
         xy[1, i, j] = (2 * i + 1) * (SIZE // 2)
-print(xy[0].shape)
+        screen.blit(*RoundedRect(pg.Rect(xy[0, i, j], xy[1, i, j], 1, 1), white, 0.5, 0))
+# start with sizes equal to one everywhere
+ones = np.ones((N_ROWS, N_COLS), dtype=float)
+sizes = ones
+old_blit_sequence = []
+pg.display.update()  # to display the background
 
 while not holoface_close:
     for event in pg.event.get():
@@ -146,21 +156,20 @@ while not holoface_close:
                 break
     
     t = pg.time.get_ticks()  # in ms
-    screen.fill(marine)  # clear screen
-    # rotate the target if needed
-    #rot_target = target
-    rot_target = ndimage.rotate(target, rot_angle * triangle(t - t0), reshape=False)
+    # clear all changing cells
+    [pg.draw.rect(screen, marine, rect) for rect in old_blit_sequence]
 
     # compute all sizes and angles for this time increment
-    sizes = np.maximum(rot_target * 10 * f(t - t0), ones)  # use a minimum size of 1
-    #angles = np.zeros((N_ROWS, N_COLS), dtype=float)
-    angles = rot_target * -tilt_angle * f(t - t0)
+    sizes = np.maximum(target * 0.9 * SIZE * f(t - t0), ones)  # use a minimum size of 1
+    angles = np.zeros((N_ROWS, N_COLS), dtype=float)
     # draw all rectangle using list comprehension (avoid for loops for performance)
-    [RoundedRect(screen, pg.Rect(xy[0, i, j] - sizes[i, j] // 2, 
+    blit_sequence = [screen.blit(*RoundedRect(pg.Rect(xy[0, i, j] - sizes[i, j] // 2, 
                                  xy[1, i, j] - sizes[i, j] // 2, 
                                  sizes[i, j], sizes[i, j]), 
-                                 white, 0.5, angles[i, j]) for j in range(N_COLS) for i in range(N_ROWS) if sizes[i, j] > 1]
-    pg.display.update()
+                                 white, 0.5, angles[i, j])) for j in range(N_COLS) for i in range(N_ROWS) if sizes[i, j] > 1]
+    #rects = screen.blits(blit_sequence, do_return=True)  # works only for pygame >= 1.9.4
+    pg.display.update(old_blit_sequence + blit_sequence)
+    old_blit_sequence = blit_sequence
     clock.tick(FPS)
 
 print('thank you for playing')
