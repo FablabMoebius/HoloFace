@@ -10,20 +10,17 @@ from math import sin, pi
 import time
 from scipy import ndimage
 
-def RoundedRect(rect, color, radius=0.5, angle=0):
+def RoundedRect(size, color, radius=0.5):
     """
-    :param screen: display destination
-    :param rect: pygame Rect instance
+    :param size: the size of the square in pixels
     :param color: color in rgb or rgba mode
     :param float radius: rounded corner ratio in [0, 1]
-    :param int angle: rotation angle in degrees
     """
 
     color = pg.Color(*color)
     alpha = color.a
     color.a = 0
-    pos = rect.topleft
-    rect.topleft = 0, 0
+    rect = pg.Rect(0, 0, size, size)
     rectangle = pg.Surface(rect.size, pg.SRCALPHA)
 
     circle = pg.Surface([min(rect.size) * 3] * 2, pg.SRCALPHA)
@@ -42,23 +39,41 @@ def RoundedRect(rect, color, radius=0.5, angle=0):
     rectangle.fill((0, 0, 0), rect.inflate(0, -radius.h))
     rectangle.fill(color, special_flags=pg.BLEND_RGBA_MAX)
     rectangle.fill((255, 255, 255, alpha), special_flags=pg.BLEND_RGBA_MIN)
+    return rectangle
+
+def BlitRoundedRect(surface, rect, color, radius=0.5, angle=0):
+    """
+    :param surface: Surface instance destination
+    :param rect: pygame Rect instance
+    :param color: color in rgb or rgba mode
+    :param float radius: rounded corner ratio in [0, 1]
+    :param int angle: rotation angle in degrees
+    """
+    rectangle = RoundedRect(rect.size[0], color, radius)
     r = pg.transform.rotate(rectangle, angle)
+    return surface.blit(r, rect.topleft)
 
-    return (r, pos)
-
-def is_swelling(t):
-    """return True if the animation is currently swelling, False if it is shrinking.
+def is_first_half(t):
+    """return True if the animation is currently in the first half period, False otherwise.
     This can be used to optimize the animation speed.
     """
-    return (t // (0.5 * T)) % 2 == 0  # first half of the period is swelling
+    return (t // (0.5 * T)) % 2 == 0  # True if t < 0.5 * T
 
-def f(t):
-    """Time function to pace the animation."""
+def anim_size(t):
+    """Time function to pace the animation size."""
     return np.abs(np.sin(pi * t / T))
 
-def triangle(t):
+def anim_angle(t):
     """Linear time function to rotate the pattern forth and back."""
     return 2 * np.abs(t / T - np.floor(t / T + 0.5))
+
+def splash_size(t):
+    """Time function to animate the size of the splash logo."""
+    return np.abs(np.sin(pi * t / T)) if t < 0.5 * T else 1
+
+def splash_angle(t):
+    """Time function to animate the rotation angle of the splash logo."""
+    return 2 * (t / T - 0.5) if t > 0.5 * T else 0
 
 def load_image(im_name):
     # read the image using pyplot
@@ -68,28 +83,55 @@ def load_image(im_name):
         im = im[:, :, 0]
     return im / im.max()  # normalize image
 
+def create_anim():
+    anim = []
+    # the animation if a list of T_s * FPS frames:
+    for i in range(T_s * FPS):
+        print('%.1f percent' % (100 * (i + 1) / T_s / FPS))
+        anim.append(create_frame(i))
+    return anim
+
+def create_frame(i):
+    image = pg.Surface([N_COLS * SIZE, N_ROWS * SIZE], pg.SRCALPHA).convert()
+    image.fill(marine)
+    # compute all sizes and angles for this time increment
+    t = 1000 * i / FPS
+    rot_target = ndimage.rotate(target, rot_angle * g(t), reshape=False)
+    sizes = np.maximum(rot_target * 0.9 * SIZE * f(t), ONES)  # use a minimum size of 1
+    angles = rot_target * -tilt_angle * f(t)
+    # draw all rectangle using list comprehension (avoid for loops for performance)
+    [BlitRoundedRect(image, pg.Rect(xy[0, i, j] - sizes[i, j] / 2, 
+                                 xy[1, i, j] - sizes[i, j] / 2, 
+                                 sizes[i, j], sizes[i, j]), 
+                                 white, 0.5, angles[i, j]) for j in range(N_COLS) for i in range(N_ROWS) if sizes[i, j] > 1]
+    return image
+
 path = os.getcwd()
 holoface_close = False  # flag to stop the game
 pg.init()
 
 # animation parameters
-anim = 'image'  # must be in ['random', 'splash', 'image']
+anim = 'splash'  # must be in ['random', 'splash', 'image']
+save_anim_png = True
 save_screenshot = False
-FPS = 10  # frame per second
-N_ROWS_DEFAULT = 6
-N_COLS_DEFAULT = 6
+FPS = 20  # frame per second
+N_ROWS_DEFAULT = 5
+N_COLS_DEFAULT = 5
 SIZE = 15  # size of a square unit [pixel] - ideally take an even number
-T = 5 * 1e3 # animation period [ms]
+T_s = 5 # animation period [s]
+T = T_s * 1e3 # animation period [ms]
 rot_angle = 180  # degrees, angle to rotate the target as time increases
 tilt_angle = 45  # degrees, angle to give a sense of depth
 
 '''
 # plot the time functions for debugging
 from matplotlib import pyplot as plt
-t = np.linspace(0, 20, 501)
+t = np.linspace(0, 1 * T_s, 501)
 plt.figure()
-plt.plot(t, f(t))
-plt.plot(t, triangle(t))
+plt.plot(t, [splash_angle(1000 * tt) for tt in t], label='splash angle')
+plt.plot(t, [splash_size(1000 * tt) for tt in t], label='splash size')
+plt.xlabel('Time (s)')
+plt.legend()
 plt.show()
 '''
 
@@ -101,6 +143,8 @@ white = (255, 255, 255)
 if anim == 'random':
     # here we use randomly distributed values for the animation
     target = np.random.uniform(0, 1, N_ROWS_DEFAULT * N_ROWS_DEFAULT).reshape((N_ROWS_DEFAULT, N_ROWS_DEFAULT))
+    f = anim_size
+    g = 0
 elif anim == 'splash':
     # load the logo
     im_name = 'holoface_ambigram_60x60.png'
@@ -108,15 +152,20 @@ elif anim == 'splash':
     target = load_image(im_name)
     rot_angle = 180.
     tilt_angle = 0.
+    f = splash_size
+    g = splash_angle
 elif anim == 'image':
     target = load_image('holoface.png')
     rot_angle = 0.
-    tilt_angle = 0.  #45.
+    tilt_angle = 30.
+    f = anim_size
+    g = 0
 else:
     print('wrong animation type: %s' % anim)
     holoface_close = True
 # now get the actual N_ROWS, N_COLS values from the target
 N_ROWS, N_COLS = target.shape
+ONES = np.ones((N_ROWS, N_COLS), dtype=float)
 
 # setup the screen
 screen = pg.display.set_mode((N_COLS * SIZE, N_ROWS * SIZE))
@@ -128,19 +177,29 @@ pg.mouse.set_visible(0)
 clock = pg.time.Clock()  # setup clock
 t0 = pg.time.get_ticks()  # in ms
 
+the_rec = RoundedRect(SIZE, white, 0.5)
 # angle should evolve between zero (low grey values) and tilt_angle (highest gray values)
 angles = np.zeros((N_ROWS, N_COLS), dtype=float)
 # compute the mean coordinates of each cell once and for all
 xy = np.empty((2, N_ROWS, N_COLS), dtype=int)
+rec1 = RoundedRect(1, white, 0.5)
 for i in range(N_ROWS):
     for j in range(N_COLS):
         xy[0, i, j] = (2 * j + 1) * (SIZE // 2)
         xy[1, i, j] = (2 * i + 1) * (SIZE // 2)
-        screen.blit(*RoundedRect(pg.Rect(xy[0, i, j], xy[1, i, j], 1, 1), white, 0.5, 0))
+        screen.blit(rec1, (xy[0, i, j], xy[1, i, j]))
 # start with sizes equal to one everywhere
-ones = np.ones((N_ROWS, N_COLS), dtype=float)
-sizes = ones
+sizes = ONES
 old_blit_sequence = []
+
+# create the entire animation
+all_frames = create_anim()
+if save_anim_png:
+    for i in range(len(all_frames)):
+        pg.image.save(all_frames[i], 'test/%02d.png' % i)
+    print('animation was saved')
+print('done with animation')
+
 pg.display.update()  # to display the background
 
 while not holoface_close:
@@ -156,20 +215,30 @@ while not holoface_close:
                 break
     
     t = pg.time.get_ticks()  # in ms
+    """
     # clear all changing cells
-    [pg.draw.rect(screen, marine, rect) for rect in old_blit_sequence]
+    [pg.draw.rect(screen, marine, seq[0].get_rect()) for seq in old_blit_sequence]
 
     # compute all sizes and angles for this time increment
-    sizes = np.maximum(target * 0.9 * SIZE * f(t - t0), ones)  # use a minimum size of 1
-    angles = np.zeros((N_ROWS, N_COLS), dtype=float)
+    sizes = np.maximum(target * 0.8 * SIZE * f(t - t0), ONES)  # use a minimum size of 1
+    scales = sizes / SIZE
+    #angles = np.zeros((N_ROWS, N_COLS), dtype=float)
+    angles = target * -tilt_angle * f(t - t0)
     # draw all rectangle using list comprehension (avoid for loops for performance)
-    blit_sequence = [screen.blit(*RoundedRect(pg.Rect(xy[0, i, j] - sizes[i, j] // 2, 
-                                 xy[1, i, j] - sizes[i, j] // 2, 
-                                 sizes[i, j], sizes[i, j]), 
-                                 white, 0.5, angles[i, j])) for j in range(N_COLS) for i in range(N_ROWS) if sizes[i, j] > 1]
-    #rects = screen.blits(blit_sequence, do_return=True)  # works only for pygame >= 1.9.4
-    pg.display.update(old_blit_sequence + blit_sequence)
+    # this is fast but a bit pixelized
+    blit_sequence = [(pg.transform.rotozoom(the_rec, angles[i, j], scales[i, j]), 
+        (xy[0, i, j] - sizes[i, j] / 2, xy[1, i, j] - sizes[i, j] / 2)) 
+        for j in range(N_COLS) for i in range(N_ROWS) if sizes[i, j] > 1]
+    rects = screen.blits(blit_sequence, doreturn=True)  # works only for pygame >= 1.9.4
+    pg.display.update(rects)
     old_blit_sequence = blit_sequence
+    """
+    # get the corresponding image
+    i = (t - t0) / 1000 * FPS
+    i_frame = round(i) % (T_s * FPS) 
+    print('%.1f, %d' % (i, i_frame))
+    screen.blit(all_frames[i_frame], (0, 0))
+    pg.display.update()
     clock.tick(FPS)
 
 print('thank you for playing')
