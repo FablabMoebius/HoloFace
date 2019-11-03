@@ -67,12 +67,12 @@ holoface_close = False  # flag to stop the game
 pg.init()
 
 # animation parameters
-anim = 'image'  # must be in ['random', 'splash', 'image']
+anim = 'random'  # must be in ['random', 'splash', 'image']
 save_screenshot = False
 FPS = 40  # frame per second
-N_ROWS_DEFAULT = 30
-N_COLS_DEFAULT = 30
-SIZE = 14  # size of a square unit [pixel]
+N_ROWS_DEFAULT = 5
+N_COLS_DEFAULT = 5
+SIZE = 45  # size of a square unit [pixel]
 T = 10 * 1e3 # animation period [ms]
 rot_angle = 180  # degrees, angle to rotate the target as time increases
 tilt_angle = 45  # degrees, angle to give a sense of depth
@@ -152,7 +152,7 @@ while not holoface_close:
     rot_target = ndimage.rotate(target, rot_angle * triangle(t - t0), reshape=False)
 
     # compute all sizes and angles for this time increment
-    sizes = np.maximum(rot_target * 10 * f(t - t0), ones)  # use a minimum size of 1
+    sizes = np.maximum(rot_target * 0.9 * SIZE * f(t - t0), ones)  # use a minimum size of 1
     #angles = np.zeros((N_ROWS, N_COLS), dtype=float)
     angles = rot_target * -tilt_angle * f(t - t0)
     # draw all rectangle using list comprehension (avoid for loops for performance)
