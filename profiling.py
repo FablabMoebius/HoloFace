@@ -67,6 +67,10 @@ def anim_angle(t):
     """Linear time function to rotate the pattern forth and back."""
     return 2 * np.abs(t / T - np.floor(t / T + 0.5))
 
+def no_angle(t):
+    """This function just return zero."""
+    return 0
+    
 def splash_size(t):
     """Time function to animate the size of the splash logo."""
     return np.abs(np.sin(pi * t / T)) if t < 0.5 * T else 1
@@ -111,12 +115,12 @@ holoface_close = False  # flag to stop the game
 pg.init()
 
 # animation parameters
-anim = 'splash'  # must be in ['random', 'splash', 'image']
-save_anim_png = True
+anim = 'image'  # must be in ['random', 'splash', 'image']
+save_anim_png = False
 save_screenshot = False
 FPS = 20  # frame per second
-N_ROWS_DEFAULT = 5
-N_COLS_DEFAULT = 5
+N_ROWS_DEFAULT = 35
+N_COLS_DEFAULT = 35
 SIZE = 15  # size of a square unit [pixel] - ideally take an even number
 T_s = 5 # animation period [s]
 T = T_s * 1e3 # animation period [ms]
@@ -144,7 +148,7 @@ if anim == 'random':
     # here we use randomly distributed values for the animation
     target = np.random.uniform(0, 1, N_ROWS_DEFAULT * N_ROWS_DEFAULT).reshape((N_ROWS_DEFAULT, N_ROWS_DEFAULT))
     f = anim_size
-    g = 0
+    g = no_angle
 elif anim == 'splash':
     # load the logo
     im_name = 'holoface_ambigram_60x60.png'
@@ -159,7 +163,7 @@ elif anim == 'image':
     rot_angle = 0.
     tilt_angle = 30.
     f = anim_size
-    g = 0
+    g = no_angle
 else:
     print('wrong animation type: %s' % anim)
     holoface_close = True
