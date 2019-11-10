@@ -10,7 +10,23 @@ from math import sin, pi
 import time
 #from scipy import ndimage
 
-def SquaredRect(size, color):
+def cross(size, color):
+    rect = pg.Rect(0, 0, size, size)
+    rectangle = pg.Surface(rect.size, pg.SRCALPHA)
+    pg.draw.line(rectangle, color, (0, size/2), (size, size/2), max(size // 3, 1))
+    pg.draw.line(rectangle, color, (size/2, 0), (size/2, size), max(size // 3, 1))
+    return rectangle
+
+def corner(size, color):
+    rect = pg.Rect(0, 0, size, size)
+    rectangle = pg.Surface(rect.size, pg.SRCALPHA)
+    #pg.draw.line(rectangle, color, (-size/2, size/2), (size/2, size/2), max(size // 3, 1))
+    #pg.draw.line(rectangle, color, (size/2, -size/2), (size/2, size/2), max(size // 3, 1))
+    pg.draw.line(rectangle, color, (0, size/2), (size/2, size/2), max(size // 3, 1))
+    pg.draw.line(rectangle, color, (size/2, 0), (size/2, size/2), max(size // 3, 1))
+    return rectangle
+
+def square(size, color):
     """
     :param size: the size of the square in pixels
     :param color: color in rgb or rgba mode
@@ -20,7 +36,7 @@ def SquaredRect(size, color):
     rectangle.fill(color)
     return rectangle
 
-def RoundedRect(size, color, radius=0.5):
+def rounded_rect(size, color, radius=0.5):
     """
     :param size: the size of the square in pixels
     :param color: color in rgb or rgba mode
@@ -50,7 +66,7 @@ def RoundedRect(size, color, radius=0.5):
     rectangle.fill((255, 255, 255, alpha), special_flags=pg.BLEND_RGBA_MIN)
     return rectangle
 
-def BlitRect(surface, rect, color, radius=0.5, angle=0):
+def blit_shape(surface, rect, color, angle=0):
     """
     :param surface: Surface instance destination
     :param rect: pygame Rect instance
@@ -58,7 +74,7 @@ def BlitRect(surface, rect, color, radius=0.5, angle=0):
     :param float radius: rounded corner ratio in [0, 1]
     :param int angle: rotation angle in degrees
     """
-    rectangle = RoundedRect(rect.size[0], color, radius)
+    rectangle = shape(rect.size[0], color)
     r = pg.transform.rotate(rectangle, angle)
     return surface.blit(r, rect.topleft)
 
@@ -147,7 +163,7 @@ def create_frame(i):
     sizes = np.maximum(sizes, ONES)  # use a minimum size of 1
     angles = rot_target * -tilt_angle * f(t)
     # draw all rectangle using list comprehension (avoid for loops for performance)
-    [BlitRect(image, pg.Rect(xy[0, i, j] - sizes[i, j] / 2, 
+    [blit_shape(image, pg.Rect(xy[0, i, j] - sizes[i, j] / 2, 
                              xy[1, i, j] - sizes[i, j] / 2, 
                              sizes[i, j], sizes[i, j]), 
                              white, angles[i, j]) for j in range(N_COLS) for i in range(N_ROWS) if sizes[i, j] > 1]
@@ -159,13 +175,13 @@ def holoface(anim='random'):
     path = os.getcwd()
     holoface_close = False  # flag to stop the game
     pg.init()
-    global T_s, FPS, N_ROWS, N_COLS, SIZE, marine, target, f, T, ONES, tilt_angle, xy, white
+    global T_s, FPS, N_ROWS, N_COLS, SIZE, marine, target, f, T, ONES, tilt_angle, xy, white, shape
     
     # animation parameters
     #anim = 'image'  # must be in ['random', 'splash', 'image', 'wait']
     splash_file = 'splash_anim.npz'
     save_anim_png = False
-    save_screenshot = False
+    save_screenshot = True
     FPS = 10  # frame per second
     N_ROWS_DEFAULT = 35
     N_COLS_DEFAULT = 35
@@ -197,6 +213,7 @@ def holoface(anim='random'):
         target = np.random.uniform(0, 1, N_ROWS_DEFAULT * N_ROWS_DEFAULT).reshape((N_ROWS_DEFAULT, N_ROWS_DEFAULT))
         f = anim_size
         g = no_angle
+        shape = rounded_rect
     elif anim == 'splash':
         # load the logo
         im_name = 'holoface_ambigram_60x60.png'
@@ -206,15 +223,18 @@ def holoface(anim='random'):
         tilt_angle = 0.
         f = splash_size
         g = splash_angle
+        shape = rounded_rect
     elif anim == 'image':
         target = load_image('holoface.png')
         rot_angle = 0.
         tilt_angle = 0.
         f = anim_size
         g = no_angle
+        shape = corner #cross
     elif anim == 'wait':
         # create streams going down
         n_streams = N_COLS // 6
+        shape = square
     else:
         print('wrong animation type: %s' % anim)
         holoface_close = True
@@ -229,12 +249,12 @@ def holoface(anim='random'):
     pg.display.set_caption('HoloFace test animation')
     pg.mouse.set_visible(0)
 
-    the_rec = RoundedRect(SIZE, white)
+    the_rec = shape(SIZE, white)
     # angle should evolve between zero (low grey values) and tilt_angle (highest gray values)
     angles = np.zeros((N_ROWS, N_COLS), dtype=float)
     # compute the mean coordinates of each cell once and for all
     xy = np.empty((2, N_ROWS, N_COLS), dtype=int)
-    rec1 = RoundedRect(1, white)
+    rec1 = square(1, white)
     for i in range(N_ROWS):
         for j in range(N_COLS):
             xy[0, i, j] = (2 * j + 1) * (SIZE // 2)
@@ -302,8 +322,9 @@ def holoface(anim='random'):
         clock.tick(FPS)
 
     print('thank you for playing')
-    if save_screenshot:
-        pg.image.save(screen, os.path.join('images', 'screenshot.bmp'))
+    if save_screenshot is True:
+        pg.image.save(screen, os.path.join('images', 'screenshot.png'))
+        print('screenshot was saved')
     time.sleep(0.2)
     pg.display.quit()
 
