@@ -10,13 +10,22 @@ from math import sin, pi
 import time
 #from scipy import ndimage
 
+def SquaredRect(size, color):
+    """
+    :param size: the size of the square in pixels
+    :param color: color in rgb or rgba mode
+    """
+    rect = pg.Rect(0, 0, size, size)
+    rectangle = pg.Surface(rect.size, pg.SRCALPHA)
+    rectangle.fill(color)
+    return rectangle
+
 def RoundedRect(size, color, radius=0.5):
     """
     :param size: the size of the square in pixels
     :param color: color in rgb or rgba mode
     :param float radius: rounded corner ratio in [0, 1]
     """
-
     color = pg.Color(*color)
     alpha = color.a
     color.a = 0
@@ -41,7 +50,7 @@ def RoundedRect(size, color, radius=0.5):
     rectangle.fill((255, 255, 255, alpha), special_flags=pg.BLEND_RGBA_MIN)
     return rectangle
 
-def BlitRoundedRect(surface, rect, color, radius=0.5, angle=0):
+def BlitRect(surface, rect, color, radius=0.5, angle=0):
     """
     :param surface: Surface instance destination
     :param rect: pygame Rect instance
@@ -52,6 +61,10 @@ def BlitRoundedRect(surface, rect, color, radius=0.5, angle=0):
     rectangle = RoundedRect(rect.size[0], color, radius)
     r = pg.transform.rotate(rectangle, angle)
     return surface.blit(r, rect.topleft)
+
+def round_odd(x):
+    """Round to nearest odd integer."""
+    return (2 * (x // 2) + 1).astype(np.int)
 
 def is_first_half(t):
     """return True if the animation is currently in the first half period, False otherwise.
@@ -95,20 +108,52 @@ def create_anim():
         anim.append(create_frame(i))
     return anim
 
+def create_anim_multithread(cores=None):
+    anim = []
+    from multiprocessing import cpu_count
+    from multiprocessing import Pool
+    if not cores:
+        cores = cpu_count()
+    print('computing animation using %d processes...' % cores)
+    #core_ids = list(range(0, cores))
+    num_frames_per_core = int(np.ceil(T_s * FPS / float(cores)))
+    print('using %d frames per core' % num_frames_per_core)
+    indices = [range(i * num_frames_per_core, min(T_s * FPS, (i + 1) * num_frames_per_core)) for i in range(cores)]
+    pool = Pool(processes=cores)
+    results = pool.map(create_frames, indices)
+    # here we do not check that the results are in order but it seems to work
+    for result in results:
+        anim.extend(result)
+ 
+    # close the pool and wait for all processes to finish
+    print('cleaning up processes')
+    pool.close()
+    pool.join()
+    print('multiprocessing done')
+    print(len(anim))
+    return anim
+
+def create_frames(indices):
+    return [create_frame(i) for i in indices]
+
 def create_frame(i):
+    print('creating frame %d' % i)
     image = pg.Surface([N_COLS * SIZE, N_ROWS * SIZE], pg.SRCALPHA).convert()
     image.fill(marine)
     # compute all sizes and angles for this time increment
     t = 1000 * i / FPS
     rot_target = target #ndimage.rotate(target, rot_angle * g(t), reshape=False)
-    sizes = np.maximum(rot_target * 0.9 * SIZE * f(t), ONES)  # use a minimum size of 1
+    sizes = round_odd(rot_target * 0.9 * SIZE * f(t))
+    sizes = np.maximum(sizes, ONES)  # use a minimum size of 1
     angles = rot_target * -tilt_angle * f(t)
     # draw all rectangle using list comprehension (avoid for loops for performance)
-    [BlitRoundedRect(image, pg.Rect(xy[0, i, j] - sizes[i, j] / 2, 
-                                 xy[1, i, j] - sizes[i, j] / 2, 
-                                 sizes[i, j], sizes[i, j]), 
-                                 white, 0.5, angles[i, j]) for j in range(N_COLS) for i in range(N_ROWS) if sizes[i, j] > 1]
-    return image
+    [BlitRect(image, pg.Rect(xy[0, i, j] - sizes[i, j] / 2, 
+                             xy[1, i, j] - sizes[i, j] / 2, 
+                             sizes[i, j], sizes[i, j]), 
+                             white, angles[i, j]) for j in range(N_COLS) for i in range(N_ROWS) if sizes[i, j] > 1]
+    frame_data = np.empty([N_COLS * SIZE, N_ROWS * SIZE, 3], dtype=np.uint8)
+    pg.pixelcopy.surface_to_array(frame_data, image, kind='P')
+    return frame_data
 
 def holoface(anim='random'):
     path = os.getcwd()
@@ -121,11 +166,11 @@ def holoface(anim='random'):
     splash_file = 'splash_anim.npz'
     save_anim_png = False
     save_screenshot = False
-    FPS = 20  # frame per second
+    FPS = 10  # frame per second
     N_ROWS_DEFAULT = 35
     N_COLS_DEFAULT = 35
     SIZE = 15  # size of a square unit [pixel] - ideally take an even number
-    T_s = 10 # animation period [s]
+    T_s = 5 # animation period [s]
     T = T_s * 1e3 # animation period [ms]
     rot_angle = 360  # degrees, angle to rotate the target as time increases
     tilt_angle = 45  # degrees, angle to give a sense of depth
@@ -164,7 +209,7 @@ def holoface(anim='random'):
     elif anim == 'image':
         target = load_image('holoface.png')
         rot_angle = 0.
-        tilt_angle = 30.
+        tilt_angle = 0.
         f = anim_size
         g = no_angle
     elif anim == 'wait':
@@ -184,12 +229,12 @@ def holoface(anim='random'):
     pg.display.set_caption('HoloFace test animation')
     pg.mouse.set_visible(0)
 
-    the_rec = RoundedRect(SIZE, white, 0.5)
+    the_rec = RoundedRect(SIZE, white)
     # angle should evolve between zero (low grey values) and tilt_angle (highest gray values)
     angles = np.zeros((N_ROWS, N_COLS), dtype=float)
     # compute the mean coordinates of each cell once and for all
     xy = np.empty((2, N_ROWS, N_COLS), dtype=int)
-    rec1 = RoundedRect(1, white, 0.5)
+    rec1 = RoundedRect(1, white)
     for i in range(N_ROWS):
         for j in range(N_COLS):
             xy[0, i, j] = (2 * j + 1) * (SIZE // 2)
@@ -215,7 +260,10 @@ def holoface(anim='random'):
         all_frames = [pg.pixelcopy.make_surface(splash_data[i]) for i in range(splash_data.shape[0])]
     else:
         # create the entire animation
-        all_frames = create_anim()
+        anim = create_anim_multithread()
+        print(type(anim))
+        print(len(anim))
+        all_frames = [pg.pixelcopy.make_surface(anim[i]) for i in range(len(anim))]
 
     if save_anim_png:
         for i in range(len(all_frames)):
@@ -228,6 +276,7 @@ def holoface(anim='random'):
     clock = pg.time.Clock()  # setup clock
     t0 = pg.time.get_ticks()  # in ms
 
+    # main loop executing the animation
     while not holoface_close:
         for event in pg.event.get():
             if event.type == pg.QUIT:
@@ -241,24 +290,6 @@ def holoface(anim='random'):
                     break
         
         t = pg.time.get_ticks()  # in ms
-        """
-        # clear all changing cells
-        [pg.draw.rect(screen, marine, seq[0].get_rect()) for seq in old_blit_sequence]
-
-        # compute all sizes and angles for this time increment
-        sizes = np.maximum(target * 0.8 * SIZE * f(t - t0), ONES)  # use a minimum size of 1
-        scales = sizes / SIZE
-        #angles = np.zeros((N_ROWS, N_COLS), dtype=float)
-        angles = target * -tilt_angle * f(t - t0)
-        # draw all rectangle using list comprehension (avoid for loops for performance)
-        # this is fast but a bit pixelized
-        blit_sequence = [(pg.transform.rotozoom(the_rec, angles[i, j], scales[i, j]), 
-            (xy[0, i, j] - sizes[i, j] / 2, xy[1, i, j] - sizes[i, j] / 2)) 
-            for j in range(N_COLS) for i in range(N_ROWS) if sizes[i, j] > 1]
-        rects = screen.blits(blit_sequence, doreturn=True)  # works only for pygame >= 1.9.4
-        pg.display.update(rects)
-        old_blit_sequence = blit_sequence
-        """
         # get the corresponding image
         i = ((t - t0) / 1000 * FPS)
         if anim == 'splash' and i > T_s * FPS:
@@ -271,12 +302,10 @@ def holoface(anim='random'):
         clock.tick(FPS)
 
     print('thank you for playing')
-    data = np.empty([N_COLS * SIZE, N_ROWS * SIZE, 3], dtype=np.uint8)
-    pg.pixelcopy.surface_to_array(data, screen, kind='P')
-    print(type(data))
-    print(data.shape)
     if save_screenshot:
         pg.image.save(screen, os.path.join('images', 'screenshot.bmp'))
     time.sleep(0.2)
     pg.display.quit()
 
+if __name__ == '__main__':
+    holoface(anim='image')
