@@ -1,14 +1,17 @@
 from picamera import PiCamera
 import numpy as np
+import os
 import cv2
 from edge_detection import detect_edges
-from profiling import holoface
+from animate import holoface
 
+face_dir = 'faces'
+archive_face = True
 run_holoface = False
 
 # Camera resolution height must be dividable by 16, and width by 32
-cam_width = 1280  #x1944640
-cam_height = 1024  #480
+cam_width = 640 #1280  #x1944640
+cam_height = 480 #1024  #480
 print ("Using camera resolution: %d x %d" % (cam_width, cam_height))
 capture = np.zeros((cam_height, cam_width, 4), dtype=np.uint8)
 
@@ -16,8 +19,9 @@ capture = np.zeros((cam_height, cam_width, 4), dtype=np.uint8)
 #camera = PiCamera(stereo_mode='side-by-side', stereo_decimate=False)
 camera = PiCamera()
 camera.resolution=(cam_width, cam_height)
-camera.framerate = 2
+camera.framerate = 5
 camera.hflip = False
+camera.vflip = False
 
 # load calibration
 calib = np.load('calib.npz')
@@ -53,13 +57,25 @@ for frame in camera.capture_continuous(capture, format="bgra", use_video_port=Tr
 	# if the `q` key was pressed, break from the loop and save last image
 	if key == ord('q'):
 		break
-	elif key == ord('h'):
+	elif key == ord('h') and faces[index_max][2] > 50:
 		(x, y, w, h) = faces[index_max]
+		print('original bb: %d %d %d %d' % (x, y, w, h)) 
 		# launch holoface
-		face = img[y - pad:y + h + pad, x - pad:x + w + pad]
+		vpad = pad
+		hpad = pad
+		face = img[max(y - vpad, 0):y + h + vpad, max(x - hpad, 0):x + w + hpad]
+		print('hpad = %d - vpad = %d' % (hpad, hpad))
+		print('extended bb: %d %d %d %d' % (y - vpad,y + h + vpad, x - hpad,x + w + hpad)) 
 		print('saving face')
 		print(img.shape)
 		cv2.imwrite('face.png', face)
+		if archive_face:
+			# also save the face in the faces folder
+			l = os.listdir(face_dir)
+			l.sort()
+			last_face_index = int(l[-1][4:8])
+			face_path = os.path.join(face_dir, 'face%04d.png' % (1 + last_face_index))
+			cv2.imwrite(face_path, face)
 		detect_edges(face, debug=True)
 		run_holoface = True
 		break

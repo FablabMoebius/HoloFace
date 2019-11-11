@@ -1,4 +1,5 @@
 import cv2
+import dlib
 import sys
 from matplotlib import pyplot as plt, cm
 
@@ -7,7 +8,7 @@ face_cascade = cv2.CascadeClassifier(casc_path)
 video_capture = cv2.VideoCapture(0)  # capture from the camera
 pad = 30  # pixel to pad before saving the face
 
-def capture_face(save_face=True):
+def face_capture(save_face=True):
     '''Function to capture a face.
     
     Enter an infinite loop to capture the camera input and analyze it 
@@ -46,5 +47,14 @@ def capture_face(save_face=True):
     cv2.destroyAllWindows()
     return face
 
+def face_landmark():
+    predictor_path = 'shape_predictor_68_face_landmarks.dat.bz2'
+    detector = dlib.get_frontal_face_detector()
+    predictor = dlib.shape_predictor(predictor_path)
+    img = dlib.load_rgb_image('faces/face0001.png')
+    faces = detector(img, 1)
+    print("Number of faces detected: {}".format(len(faces)))
+    
 if __name__ == '__main__':
-    capture_face()
+    #face_capture()
+    face_landmark()

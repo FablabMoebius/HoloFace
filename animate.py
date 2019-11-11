@@ -181,7 +181,7 @@ def holoface(anim='random'):
     #anim = 'image'  # must be in ['random', 'splash', 'image', 'wait']
     splash_file = 'splash_anim.npz'
     save_anim_png = False
-    save_screenshot = True
+    save_screenshot = False
     FPS = 10  # frame per second
     N_ROWS_DEFAULT = 35
     N_COLS_DEFAULT = 35
@@ -230,7 +230,7 @@ def holoface(anim='random'):
         tilt_angle = 0.
         f = anim_size
         g = no_angle
-        shape = corner #cross
+        shape = rounded_rect
     elif anim == 'wait':
         # create streams going down
         n_streams = N_COLS // 6
