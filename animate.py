@@ -10,34 +10,59 @@ from math import sin, pi
 import time
 #from scipy import ndimage
 
+def circle(size, color):
+    """
+    Draw a simple circle.
+
+    :param size: the size of the circle in pixels
+    :param color: color in rgb or rgba mode
+    """
+    shape = pg.Surface((size, size), pg.SRCALPHA)
+    pg.draw.ellipse(shape, color, shape.get_rect(), 0)
+    return shape
+
 def cross(size, color):
+    """
+    Draw a cross shape.
+
+    :param size: the size of the cross in pixels
+    :param color: color in rgb or rgba mode
+    """
     rect = pg.Rect(0, 0, size, size)
-    rectangle = pg.Surface(rect.size, pg.SRCALPHA)
-    pg.draw.line(rectangle, color, (0, size/2), (size, size/2), max(size // 3, 1))
-    pg.draw.line(rectangle, color, (size/2, 0), (size/2, size), max(size // 3, 1))
-    return rectangle
+    shape = pg.Surface(rect.size, pg.SRCALPHA)
+    pg.draw.line(shape, color, (0, size/2), (size, size/2), max(size // 3, 1))
+    pg.draw.line(shape, color, (size/2, 0), (size/2, size), max(size // 3, 1))
+    return shape
 
 def corner(size, color):
+    """
+    Draw a corner shape.
+
+    :param size: the size of the corner in pixels
+    :param color: color in rgb or rgba mode
+    """
     rect = pg.Rect(0, 0, size, size)
-    rectangle = pg.Surface(rect.size, pg.SRCALPHA)
-    #pg.draw.line(rectangle, color, (-size/2, size/2), (size/2, size/2), max(size // 3, 1))
-    #pg.draw.line(rectangle, color, (size/2, -size/2), (size/2, size/2), max(size // 3, 1))
-    pg.draw.line(rectangle, color, (0, size/2), (size/2, size/2), max(size // 3, 1))
-    pg.draw.line(rectangle, color, (size/2, 0), (size/2, size/2), max(size // 3, 1))
-    return rectangle
+    shape = pg.Surface(rect.size, pg.SRCALPHA)
+    pg.draw.line(shape, color, (0, size/2), (size/2, size/2), max(size // 3, 1))
+    pg.draw.line(shape, color, (size/2, 0), (size/2, size/2), max(size // 3, 1))
+    return shape
 
 def square(size, color):
     """
+    Draw a simple square.
+
     :param size: the size of the square in pixels
     :param color: color in rgb or rgba mode
     """
     rect = pg.Rect(0, 0, size, size)
-    rectangle = pg.Surface(rect.size, pg.SRCALPHA)
-    rectangle.fill(color)
-    return rectangle
+    shape = pg.Surface(rect.size, pg.SRCALPHA)
+    shape.fill(color)
+    return shape
 
-def rounded_rect(size, color, radius=0.5):
+def rounded_square(size, color, radius=0.5):
     """
+    Draw a rounded square.
+
     :param size: the size of the square in pixels
     :param color: color in rgb or rgba mode
     :param float radius: rounded corner ratio in [0, 1]
@@ -46,25 +71,25 @@ def rounded_rect(size, color, radius=0.5):
     alpha = color.a
     color.a = 0
     rect = pg.Rect(0, 0, size, size)
-    rectangle = pg.Surface(rect.size, pg.SRCALPHA)
+    shape = pg.Surface(rect.size, pg.SRCALPHA)
 
     circle = pg.Surface([min(rect.size) * 3] * 2, pg.SRCALPHA)
     pg.draw.ellipse(circle, (0, 0, 0), circle.get_rect(), 0)
     circle = pg.transform.smoothscale(circle, [int(min(rect.size) * radius)] * 2)
 
-    radius = rectangle.blit(circle, (0, 0))
+    radius = shape.blit(circle, (0, 0))
     radius.bottomright = rect.bottomright
-    rectangle.blit(circle, radius)
+    shape.blit(circle, radius)
     radius.topright = rect.topright
-    rectangle.blit(circle, radius)
+    shape.blit(circle, radius)
     radius.bottomleft = rect.bottomleft
-    rectangle.blit(circle, radius)
+    shape.blit(circle, radius)
 
-    rectangle.fill((0, 0, 0), rect.inflate(-radius.w, 0))
-    rectangle.fill((0, 0, 0), rect.inflate(0, -radius.h))
-    rectangle.fill(color, special_flags=pg.BLEND_RGBA_MAX)
-    rectangle.fill((255, 255, 255, alpha), special_flags=pg.BLEND_RGBA_MIN)
-    return rectangle
+    shape.fill((0, 0, 0), rect.inflate(-radius.w, 0))
+    shape.fill((0, 0, 0), rect.inflate(0, -radius.h))
+    shape.fill(color, special_flags=pg.BLEND_RGBA_MAX)
+    shape.fill((255, 255, 255, alpha), special_flags=pg.BLEND_RGBA_MIN)
+    return shape
 
 def blit_shape(surface, rect, color, angle=0):
     """
@@ -213,7 +238,7 @@ def holoface(anim='random'):
         target = np.random.uniform(0, 1, N_ROWS_DEFAULT * N_ROWS_DEFAULT).reshape((N_ROWS_DEFAULT, N_ROWS_DEFAULT))
         f = anim_size
         g = no_angle
-        shape = rounded_rect
+        shape = rounded_square
     elif anim == 'splash':
         # load the logo
         im_name = 'holoface_ambigram_60x60.png'
@@ -223,14 +248,14 @@ def holoface(anim='random'):
         tilt_angle = 0.
         f = splash_size
         g = splash_angle
-        shape = rounded_rect
+        shape = rounded_square
     elif anim == 'image':
         target = load_image('holoface.png')
         rot_angle = 0.
         tilt_angle = 0.
         f = anim_size
         g = no_angle
-        shape = rounded_rect
+        shape = rounded_square
     elif anim == 'wait':
         # create streams going down
         n_streams = N_COLS // 6
