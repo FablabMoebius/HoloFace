@@ -1,7 +1,8 @@
 # coding: utf-8
-'''
-[En] test rectangle animation
-'''
+"""
+Module to play the holoface animation. The animation is first calculated offline and run cyclicaly in a loop. 
+The library pygame is leverage to play the animation, handle the frame rate and a few event callbacks.
+"""
 import sys, time, random
 import pygame as pg
 import os
@@ -133,6 +134,17 @@ def splash_angle(t):
     """Time function to animate the rotation angle of the splash logo."""
     return 2 * (t / T - 0.5) if t > 0.5 * T else 0
 
+def plot_time_functions():
+    """Plot our time functions used in the animation."""
+    from matplotlib import pyplot as plt
+    t = np.linspace(0, 1 * T_s, 501)
+    plt.figure()
+    plt.plot(t, [splash_angle(1000 * tt) for tt in t], label='splash angle')
+    plt.plot(t, [splash_size(1000 * tt) for tt in t], label='splash size')
+    plt.xlabel('Time (s)')
+    plt.legend()
+    plt.show()
+
 def load_image(im_name):
     # read the image using pyplot
     from matplotlib import pyplot as plt
@@ -197,6 +209,12 @@ def create_frame(i):
     return frame_data
 
 def holoface(anim='random'):
+    """Run the holoface animation.
+
+    Different types of animations can be run depending on the variable `anim`.
+
+    @param str anim: type of the animation, must be in ['random', 'splash', 'image', 'wait']
+    """
     path = os.getcwd()
     holoface_close = False  # flag to stop the game
     pg.init()
@@ -215,18 +233,6 @@ def holoface(anim='random'):
     T = T_s * 1e3 # animation period [ms]
     rot_angle = 360  # degrees, angle to rotate the target as time increases
     tilt_angle = 45  # degrees, angle to give a sense of depth
-
-    '''
-    # plot the time functions for debugging
-    from matplotlib import pyplot as plt
-    t = np.linspace(0, 1 * T_s, 501)
-    plt.figure()
-    plt.plot(t, [splash_angle(1000 * tt) for tt in t], label='splash angle')
-    plt.plot(t, [splash_size(1000 * tt) for tt in t], label='splash size')
-    plt.xlabel('Time (s)')
-    plt.legend()
-    plt.show()
-    '''
 
     # colors
     marine = (0, 10, 50)
@@ -338,6 +344,7 @@ def holoface(anim='random'):
         # get the corresponding image
         i = ((t - t0) / 1000 * FPS)
         if anim == 'splash' and i > T_s * FPS:
+            # stay on the last frame
             i_frame = -1
         else:
             i_frame = round(i) % (T_s * FPS)
