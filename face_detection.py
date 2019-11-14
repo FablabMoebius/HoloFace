@@ -5,21 +5,6 @@ import sys
 import numpy as np
 import os
 
-face_dir = 'faces'
-pad = 30  # pixel to pad before saving the face
-
-cam_width = 640
-cam_height = 480
-print ("Using camera resolution: %d x %d" % (cam_width, cam_height))
-capture = np.zeros((cam_height, cam_width, 4), dtype=np.uint8)
-
-# Initialize the camera
-camera = PiCamera()
-camera.resolution=(cam_width, cam_height)
-camera.framerate = 5
-camera.hflip = False
-camera.vflip = False
-
 def face_capture(mode='haar', archive_face=True):
     """Function to capture a face.
     
@@ -30,6 +15,21 @@ def face_capture(mode='haar', archive_face=True):
     :param str mode: should be 'haar' or 'landmark
     :param bool archive_face: a flag to archive detected face to the faces folder
     """
+    face_dir = 'faces'
+    pad = 50  # pixel to pad before saving the face
+
+    cam_width = 640
+    cam_height = 480
+    print ("Using camera resolution: %d x %d" % (cam_width, cam_height))
+    capture = np.zeros((cam_height, cam_width, 4), dtype=np.uint8)
+
+    # Initialize the camera
+    camera = PiCamera()
+    camera.resolution=(cam_width, cam_height)
+    camera.framerate = 5
+    camera.hflip = False
+    camera.vflip = False
+
     face = None
     assert mode in ['haar', 'landmark']
     if mode == 'haar':
@@ -77,6 +77,7 @@ def face_capture(mode='haar', archive_face=True):
         elif key & 0xFF == ord('q'):
             break
 
+    camera.close()
     cv2.destroyAllWindows()
     return face
     

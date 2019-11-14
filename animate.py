@@ -274,7 +274,8 @@ def holoface(anim='random'):
     ONES = np.ones((N_ROWS, N_COLS), dtype=float)
 
     # setup the screen
-    screen = pg.display.set_mode((N_COLS * SIZE, N_ROWS * SIZE))
+    #screen = pg.display.set_mode((N_COLS * SIZE, N_ROWS * SIZE))
+    screen = pg.display.set_mode((0, 0), pg.FULLSCREEN)
     screen.fill(marine)
 
     pg.display.set_caption('HoloFace test animation')
@@ -312,8 +313,6 @@ def holoface(anim='random'):
     else:
         # create the entire animation
         anim = create_anim_multithread()
-        print(type(anim))
-        print(len(anim))
         all_frames = [pg.pixelcopy.make_surface(anim[i]) for i in range(len(anim))]
 
     if save_anim_png:

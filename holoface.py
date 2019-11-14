@@ -2,13 +2,25 @@ from picamera import PiCamera
 import numpy as np
 import os
 import cv2
+from face_detection import face_capture
 from edge_detection import detect_edges
 from animate import holoface
+from matplotlib import pyplot as plt, cm
 
-face_dir = 'faces'
-archive_face = True
-run_holoface = False
+while True:
+	print('new shot')
+	# face detection
+	face = face_capture(mode='haar', archive_face=True)
+	print(face)
+	if face is not None:
+		# process the detected face
+		pattern = detect_edges(face, debug=False)
+		m = 0.5 * pattern.max()
+		plt.imsave('images/holoface.png', pattern, cmap=cm.gray, vmin=0., vmax=m)
+		# now run holoface if an image was taken
+		holoface(anim='image')
 
+""" # now done in face_detection
 # Camera resolution height must be dividable by 16, and width by 32
 cam_width = 640 #1280  #x1944640
 cam_height = 480 #1024  #480
@@ -22,7 +34,6 @@ camera.resolution=(cam_width, cam_height)
 camera.framerate = 5
 camera.hflip = False
 camera.vflip = False
-
 # load calibration
 calib = np.load('calib.npz')
 mtx = calib['mtx']
@@ -30,7 +41,10 @@ dist = calib['dist']
 w = cam_width
 h = cam_height
 newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
+"""
 
+"""
+face_dir = 'faces'
 # face detection
 casc_path = 'haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(casc_path)
@@ -76,15 +90,7 @@ for frame in camera.capture_continuous(capture, format="bgra", use_video_port=Tr
 			last_face_index = int(l[-1][4:8])
 			face_path = os.path.join(face_dir, 'face%04d.png' % (1 + last_face_index))
 			cv2.imwrite(face_path, face)
-		detect_edges(face, debug=True)
-		run_holoface = True
-		break
 camera.close()
-
-# now run holoface if an image was taken
-if run_holoface:
-	holoface(anim='image')
-
-
+"""
 
 
