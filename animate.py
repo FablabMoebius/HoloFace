@@ -224,11 +224,11 @@ def holoface(anim='random'):
     #anim = 'image'  # must be in ['random', 'splash', 'image', 'wait']
     splash_file = 'splash_anim.npz'
     save_anim_png = False
-    save_screenshot = False
+    save_screenshot = True
     FPS = 10  # frame per second
     N_ROWS_DEFAULT = 35
     N_COLS_DEFAULT = 35
-    SIZE = 15  # size of a square unit [pixel] - ideally take an even number
+    SIZE = 25  # size of a square unit [pixel] - ideally take an even number
     T_s = 5 # animation period [s]
     T = T_s * 1e3 # animation period [ms]
     rot_angle = 360  # degrees, angle to rotate the target as time increases
@@ -248,7 +248,7 @@ def holoface(anim='random'):
     elif anim == 'splash':
         # load the logo
         im_name = 'holoface_ambigram_60x60.png'
-        #target = load_image('holoface_ambigram_100x38.png')
+        im_name = 'holoface_logo_57x37.png'
         target = load_image(im_name)
         rot_angle = 360.
         tilt_angle = 0.
@@ -298,22 +298,21 @@ def holoface(anim='random'):
 
     # save splash animation if needed
     if anim == 'splash' and not os.path.exists(splash_file):
-        all_frames = create_anim()
+        all_frames = create_anim_multithread()
         all_frames.append(all_frames[len(all_frames) // 2])  # add an extra frame at the end
-        splash_data = np.empty([len(all_frames), N_COLS * SIZE, N_ROWS * SIZE, 3], dtype=np.uint8)
+        anim = np.empty([len(all_frames), N_COLS * SIZE, N_ROWS * SIZE, 3], dtype=np.uint8)
         for i in range(len(all_frames)):
-            pg.pixelcopy.surface_to_array(splash_data[i], all_frames[i], kind='P')
-        np.savez_compressed(splash_file, splash=splash_data)
+            anim[i] =  all_frames[i]
+        np.savez_compressed(splash_file, splash=anim)
         print('saving splash animation as compressed binary data')
     elif anim == 'splash':
         print('loading splash from file %s' % splash_file)
-        splash_data = np.load(splash_file)['splash']
-        print(splash_data.shape)
-        all_frames = [pg.pixelcopy.make_surface(splash_data[i]) for i in range(splash_data.shape[0])]
+        anim = np.load(splash_file)['splash']
+        print(anim.shape)
     else:
         # create the entire animation
         anim = create_anim_multithread()
-        all_frames = [pg.pixelcopy.make_surface(anim[i]) for i in range(len(anim))]
+    all_frames = [pg.pixelcopy.make_surface(anim[i]) for i in range(len(anim))]
 
     if save_anim_png:
         for i in range(len(all_frames)):
@@ -360,4 +359,4 @@ def holoface(anim='random'):
     pg.display.quit()
 
 if __name__ == '__main__':
-    holoface(anim='image')
+    holoface(anim='splash')
