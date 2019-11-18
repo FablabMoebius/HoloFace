@@ -13,7 +13,7 @@ class Stream():
     and its size function is used to compute the size of the blocks.
     """
 
-    SIZE = 25
+    SIZE = 15
     STREAM_LENGTH = 31  # odd number of rows that spans a stream
     STREAM_LENGTH_STD = 10
     STREAM_VELOCITY = 110  # pixel / second
@@ -86,12 +86,13 @@ class Stream():
 
 class Animation():
 
+    # some default values
     DEFAULT_N_COLS = 30
     DEFAULT_N_ROWS = 30
-    DEFAULT_SIZE = 25  # pixels
+    DEFAULT_SIZE = 15  # pixels
     DEFAULT_FPS = 10
-    DEFAULT_T_s = 5  # animation period [s]
-    DEFAULT_T_fade_s = 3  # fading duration [s]
+    DEFAULT_T_s = 20  # animation period [s]
+    DEFAULT_T_fade_s = 5  # fading duration [s]
 
     # colors
     marine = (0, 10, 50)
@@ -110,11 +111,12 @@ class Animation():
         pg.init()
         # setup the screen
         self.screen = pg.display.set_mode((0, 0), pg.FULLSCREEN)
+        #self.screen = pg.display.set_mode((self.DEFAULT_N_COLS * self.SIZE, self.DEFAULT_N_ROWS * self.SIZE))
         display_info = pg.display.Info()
         self.height = display_info.current_h
         self.width = display_info.current_w
         print('%d x %d' % (self.width, self.height))
-        self.N_COLS = Animation.DEFAULT_N_COLS  # keep default
+        self.N_COLS = min(self.width // self.SIZE, Animation.DEFAULT_N_COLS)  # keep default if enough space
         self.N_ROWS = self.height // self.SIZE
         print('%d x %d' % (self.N_ROWS, self.N_COLS))
         self.offset = (self.width - self.N_COLS * self.SIZE) / 2
@@ -135,7 +137,6 @@ class Animation():
         # set up our fade surface
         self.fade = pg.Surface((self.width, self.height))
         self.fade.fill((0, 0, 0))  # black
-        self.alpha = 0
 
         self.clock = pg.time.Clock()  # setup clock
         pg.display.set_caption('HoloFace streaming animation')
@@ -164,40 +165,42 @@ class Animation():
         return image
 
     def create_frame(self, t):
-        print('creating frame at time %d' % t)
+        #print('creating frame at time %d' % t)
         image = pg.Surface((self.width, self.height), pg.SRCALPHA)
-        print(self.N_COLS, self.offset)
-
+        image.blit(self.ref, (0, 0))
+        # draw each active stream
         for stream in self.streams:
             if not stream.active:
                 continue
             stream.blit(image, self.fg, offset=self.offset)
             if t > self.T:
                 # start fading out the screen
-                self.alpha = min((t - self.T) / self.T_fade * 255, 255)
-                self.fade.set_alpha(self.alpha)
+                alpha = min((t - self.T) / self.T_fade * 255, 255)
+                self.fade.set_alpha(alpha)
                 image.blit(self.fade, (0, 0))
+                if t > self.T + self.T_fade:
+                    self.streaming_close = True
         return image
 
     def run(self):
         """Streaming animation while the program is not being used. 
         At the end of the animation, the screen fade out to full black.
         """
-        streaming_close = False  # flag to stop the animation
+        self.streaming_close = False  # flag to stop the animation
         t0 = pg.time.get_ticks()  # in ms
         last_t = t0
         last_s = -1
         # main loop executing the animation
-        while not streaming_close:
+        while not self.streaming_close:
             for event in pg.event.get():
                 if event.type == pg.QUIT:
-                    holoface_close = True
+                    self.streaming_close = True
                     break
 
                 if event.type == pg.KEYDOWN:
                     if event.key == pg.K_q:  # use 'q' to quit game
                         print('exiting the game')
-                        streaming_close = True
+                        self.streaming_close = True
                         break
             t = pg.time.get_ticks()  # in ms
             # update stream positions
@@ -215,9 +218,9 @@ class Animation():
             if ds > self.DS:
                 # activate a new stream
                 index = np.random.randint(0, len(self.streams), 1)[0]
-                print(self.streams[index])
+                #print(self.streams[index])
                 self.streams[index].active = True
-                print('activating new stream at t=%.1f in col %d' % (t, self.streams[index].col))
+                #print('activating new stream at t=%.1f in col %d' % (t, self.streams[index].col))
                 last_s = t
             # compute and blit the corresponding image
             self.screen.blit(self.create_frame(t - t0), (0, 0))
@@ -227,7 +230,7 @@ class Animation():
 
         print('thank you for playing')
         if self.save_screenshot is True:
-            pg.image.save(screen, os.path.join('images', 'streaming.png'))
+            pg.image.save(self.screen, os.path.join('images', 'streaming.png'))
             print('screenshot was saved')
         time.sleep(0.2)
         pg.display.quit()
