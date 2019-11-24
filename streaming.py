@@ -4,7 +4,7 @@ import pygame as pg
 import os
 import numpy as np
 from math import floor
-from animate import square
+from animate import Animation, square
 
 class Stream():
     """A stream has basically a length and a size function.
@@ -84,43 +84,16 @@ class Stream():
             shape = square(sz, color)
             surface.blit(shape, (offset + (self.col + 0.5) * Stream.SIZE - sz / 2, (row + 0.5) * Stream.SIZE - sz / 2))
 
-class Animation():
-
-    # some default values
-    DEFAULT_N_COLS = 30
-    DEFAULT_N_ROWS = 30
-    DEFAULT_SIZE = 15  # pixels
-    DEFAULT_FPS = 10
-    DEFAULT_T_s = 20  # animation period [s]
-    DEFAULT_T_fade_s = 5  # fading duration [s]
-
-    # colors
-    marine = (0, 10, 50)
-    white = (255, 255, 255)
-
+class StreamingAnimation(Animation):
+  
     def __init__(self):
-        self.bg = Animation.marine
-        self.fg = Animation.white
-        self.save_screenshot = False
+        Animation.__init__(self)
         self.DS = 0.5  # second, time separating the activation of two streams
-        self.FPS = Animation.DEFAULT_FPS
-        self.SIZE = Animation.DEFAULT_SIZE
-        self.T = Animation.DEFAULT_T_s * 1e3  # animation period [ms]
-        self.T_fade = Animation.DEFAULT_T_fade_s * 1e3 # fading duration [ms]
 
-        pg.init()
-        # setup the screen
-        self.screen = pg.display.set_mode((0, 0), pg.FULLSCREEN)
-        #self.screen = pg.display.set_mode((self.DEFAULT_N_COLS * self.SIZE, self.DEFAULT_N_ROWS * self.SIZE))
-        display_info = pg.display.Info()
-        self.height = display_info.current_h
-        self.width = display_info.current_w
-        print('%d x %d' % (self.width, self.height))
-        self.N_COLS = min(self.width // self.SIZE, Animation.DEFAULT_N_COLS)  # keep default if enough space
-        self.N_ROWS = self.height // self.SIZE
-        print('%d x %d' % (self.N_ROWS, self.N_COLS))
-        self.offset = (self.width - self.N_COLS * self.SIZE) / 2
-        print('offset = %d' % self.offset)
+        # set up our fade surface
+        self.fade = pg.Surface((self.width, self.height))
+        self.fade.fill((0, 0, 0))  # black
+
 
         # initialize a list of N_COLS inactive streams
         self.streams = []  # empty list of streams
@@ -129,19 +102,6 @@ class Animation():
         # update the N_ROWS value for each stream
         for stream in self.streams:
             stream.N_ROWS = self.N_ROWS
-
-        # compute the reference image
-        self.ref = self.compute_ref()
-        self.screen.blit(self.ref, (0, 0))
-
-        # set up our fade surface
-        self.fade = pg.Surface((self.width, self.height))
-        self.fade.fill((0, 0, 0))  # black
-
-        self.clock = pg.time.Clock()  # setup clock
-        pg.display.set_caption('HoloFace streaming animation')
-        pg.mouse.set_visible(0)
-        pg.display.update()  # to display the background
 
     def blit_shape(surface, rect, color):
         """
@@ -167,7 +127,7 @@ class Animation():
     def create_frame(self, t):
         #print('creating frame at time %d' % t)
         image = pg.Surface((self.width, self.height), pg.SRCALPHA)
-        image.blit(self.ref, (0, 0))
+        image.fill(self.bg)
         # draw each active stream
         for stream in self.streams:
             if not stream.active:
@@ -236,5 +196,5 @@ class Animation():
         pg.display.quit()
 
 if __name__ == '__main__':
-    anim = Animation()
+    anim = StreamingAnimation()
     anim.run()
