@@ -54,26 +54,38 @@ def triangle(t):
     """Linear time function to rotate the pattern forth and back."""
     return 2 * np.abs(t / T - np.floor(t / T + 0.5))
 
+def load_image(im_name):
+    # read the image using pyplot
+    from matplotlib import pyplot as plt
+    im = plt.imread(os.path.join('images', im_name))
+    if im.ndim == 3:
+        im = im[:, :, 0]
+    return im / im.max()  # normalize image
+
 path = os.getcwd()
-holoface_close = False  # flag to stop
+holoface_close = False  # flag to stop the game
 pg.init()
 
 # animation parameters
-anim = 'image'  # must be in ['random', 'image']
-fps = 100  # frame per second
-N_ROWS = 60
-N_COLS = 50
-SIZE = 15  # size of a square unit [pixel]
-T = 10  # animation period [s]
-angle = 180  # degrees
+anim = 'random'  # must be in ['random', 'splash', 'image']
+save_screenshot = False
+FPS = 40  # frame per second
+N_ROWS_DEFAULT = 5
+N_COLS_DEFAULT = 5
+SIZE = 45  # size of a square unit [pixel]
+T = 10 * 1e3 # animation period [ms]
+rot_angle = 180  # degrees, angle to rotate the target as time increases
+tilt_angle = 45  # degrees, angle to give a sense of depth
 
-# plot time functions
+'''
+# plot the time functions for debugging
 from matplotlib import pyplot as plt
 t = np.linspace(0, 20, 501)
 plt.figure()
 plt.plot(t, f(t))
 plt.plot(t, triangle(t))
 plt.show()
+'''
 
 # colors
 marine = (0, 10, 50)
@@ -81,22 +93,24 @@ white = (255, 255, 255)
 
 # construct the target pattern which is used to control the sizes and the angles
 if anim == 'random':
-    target = np.random.uniform(0, 1, N_ROWS * N_COLS).reshape((N_ROWS, N_COLS))
+    # here we use randomly distributed values for the animation
+    target = np.random.uniform(0, 1, N_ROWS_DEFAULT * N_ROWS_DEFAULT).reshape((N_ROWS_DEFAULT, N_ROWS_DEFAULT))
+elif anim == 'splash':
+    # load the logo
+    im_name = 'holoface_ambigram_60x60.png'
+    #target = load_image('holoface_ambigram_100x38.png')
+    target = load_image(im_name)
+    rot_angle = 180.
+    tilt_angle = 0.
 elif anim == 'image':
-    # read png image 
-    from matplotlib import pyplot as plt
-    #im_name = 'holoface_ambigram_60x60.png'
-    #im_name = 'holoface_ambigram_100x38.png'
-    im_name = 'hp_50x60.png'
-    #im_name = 'pj.png'
-    im = plt.imread(os.path.join('images', im_name))
-    if im.ndim == 3:
-        im = im[:, :, 0]
-    N_ROWS, N_COLS = im.shape
-    target = im / im.max()  # normalize image
+    target = load_image('holoface.png')
+    rot_angle = 0.
+    tilt_angle = 0.  #45.
 else:
     print('wrong animation type: %s' % anim)
     holoface_close = True
+# now get the actual N_ROWS, N_COLS values from the target
+N_ROWS, N_COLS = target.shape
 
 # setup the screen
 screen = pg.display.set_mode((N_COLS * SIZE, N_ROWS * SIZE))
@@ -105,12 +119,11 @@ pg.display.set_caption('HoloFace test animation')
 pg.mouse.set_visible(0)
 
 clock = pg.time.Clock()  # setup clock
-#t0 = clock.get_time()
-t0 = time.time()
+t0 = pg.time.get_ticks()  # in ms
 
 ones = np.ones((N_ROWS, N_COLS), dtype=float)
 sizes = ones
-# angle should evolve between zero (low grey values) and 45 deg (highest gray values)
+# angle should evolve between zero (low grey values) and tilt_angle (highest gray values)
 angles = np.zeros((N_ROWS, N_COLS), dtype=float)
 # compute mean coordinates once and for all
 xy = np.empty((2, N_ROWS, N_COLS), dtype=int)
@@ -124,24 +137,35 @@ while not holoface_close:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             holoface_close = True
-            pg.quit()
+            break
+
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_q:  # use 'q' to quit game
+                print('exiting the game')
+                holoface_close = True
+                break
     
-    t = time.time()
+    t = pg.time.get_ticks()  # in ms
     screen.fill(marine)  # clear screen
-    # rotate target
-    angle = 0.
-    rot_target = ndimage.rotate(target, angle * triangle(t - t0), reshape=False)
+    # rotate the target if needed
+    #rot_target = target
+    rot_target = ndimage.rotate(target, rot_angle * triangle(t - t0), reshape=False)
 
     # compute all sizes and angles for this time increment
-    sizes = rot_target * 10 * f(t - t0)
-    sizes = np.maximum(sizes, ones)  # minimum size of 1
-    angles = rot_target * -45 * f(t - t0)
-    angles = np.zeros((N_ROWS, N_COLS), dtype=float)
+    sizes = np.maximum(rot_target * 0.9 * SIZE * f(t - t0), ones)  # use a minimum size of 1
+    #angles = np.zeros((N_ROWS, N_COLS), dtype=float)
+    angles = rot_target * -tilt_angle * f(t - t0)
     # draw all rectangle using list comprehension (avoid for loops for performance)
     [RoundedRect(screen, pg.Rect(xy[0, i, j] - sizes[i, j] // 2, 
                                  xy[1, i, j] - sizes[i, j] // 2, 
                                  sizes[i, j], sizes[i, j]), 
-                                 white, 0.5, angles[i, j]) for j in range(N_COLS) for i in range(N_ROWS)]
+                                 white, 0.5, angles[i, j]) for j in range(N_COLS) for i in range(N_ROWS) if sizes[i, j] > 1]
     pg.display.update()
-    clock.tick(fps)
+    clock.tick(FPS)
+
+print('thank you for playing')
+if save_screenshot:
+    pg.image.save(screen, os.path.join('images', 'screenshot.bmp'))
+time.sleep(0.2)
+pg.display.quit()
 
